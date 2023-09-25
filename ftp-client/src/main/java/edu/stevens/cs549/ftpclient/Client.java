@@ -6,20 +6,16 @@
 package edu.stevens.cs549.ftpclient;
 
 import edu.stevens.cs549.ftpinterface.IServer;
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.EOFException;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import edu.stevens.cs549.ftpinterface.IServerFactory;
+
+import java.io.*;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
@@ -133,8 +129,9 @@ public class Client {
 			 * TODO: Get a server proxy.
 			 */
 
-			IServer server = null;
-
+			Registry registry = LocateRegistry.getRegistry(serverAddr,serverPort);
+			IServerFactory serverFactory = (IServerFactory) registry.lookup(serverName);
+			IServer server = serverFactory.createServer();
 
 			/*
 			 * Start CLI. Second argument should be server proxy.
@@ -172,6 +169,7 @@ public class Client {
 
 		try {
 			InetAddress serverAddress = InetAddress.getByName(svrHost);
+			log.info("server address recognised by client :"+serverAddress.getHostAddress());
 			Dispatch d = new Dispatch(svr, serverAddress);
 			BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
 
@@ -311,7 +309,17 @@ public class Client {
 						/*
 						 * TODO: Complete this thread.
 						 */
+						InputStream inputStream = new BufferedInputStream(socket.getInputStream());
+						byte[] data = new byte[1024];
+						int bytesRead = inputStream.read(data);
+						while(bytesRead!=-1){
+							out.write(data);
+							bytesRead = inputStream.read(data);
+						}
+						out.flush();
+						inputStream.close();
 					} finally {
+						out.close();
 						socket.close();
 					}
 				} catch (IOException e) {
@@ -345,8 +353,17 @@ public class Client {
 						/*
 						 * TODO: Complete this thread.
 						 */
-						
+                        OutputStream outputStream =  new BufferedOutputStream(socket.getOutputStream());
+                        byte[] data = new byte[1024];
+                        int bytesRead = in.read(data);
+                        while(bytesRead!=-1){
+                            outputStream.write(data);
+                            bytesRead = in.read(data);
+                        }
+                        outputStream.flush();
+                        outputStream.close();
 					} finally {
+                        in.close();
 						socket.close();
 					}
 				} catch (IOException e) {
@@ -374,8 +391,14 @@ public class Client {
 							/*
 							 * TODO: download the file through the socket connection
 							 */
-
-
+							InputStream inputStream = socket.getInputStream();
+							byte[] data = new byte[1024];
+							int bytesRead = inputStream.read(data);
+							while(bytesRead!=-1){
+								out.write(data);
+								bytesRead = inputStream.read(data);
+							}
+							inputStream.close();
 							/*
 							 * End TODO
 							 */
@@ -402,6 +425,7 @@ public class Client {
 				} catch (Exception e) {
 					err(e);
 				}
+				log.info("Client Get Request exited");
 			}
 		}
 
@@ -412,11 +436,32 @@ public class Client {
 						/*
 						 * TODO
 						 */
-
+                    svr.put(inputs[1]);
+                    InputStream inputStream = new BufferedInputStream(new FileInputStream(inputs[1]));
+					log.info("Client connecting to server at address " + serverAddress);
+                    Socket socket = new Socket(serverAddress, serverSocket.getPort());
+                    try{
+						log.info("The file is getting transferred in passive put request");
+                        OutputStream outputStream =  new BufferedOutputStream(socket.getOutputStream());
+                        byte[] data = new byte[1024];
+                        int bytesRead = inputStream.read(data);
+                        while(bytesRead!=-1){
+                            outputStream.write(data);
+                            bytesRead = inputStream.read(data);
+                        }
+						inputStream.close();
+                        outputStream.flush();
+                        outputStream.close();
+                    }finally {
+                        socket.close();
+                    }
 					} else if (mode == Mode.ACTIVE) {
 						/*
 						 * TODO
 						 */
+                        InputStream inputStream = new BufferedInputStream(new FileInputStream(inputs[1]));
+                        new Thread(new PutThread(dataChan, inputStream)).start();
+                        svr.put(inputs[1]);
 					} else {
 						msgln("GET: No mode set--use port or pasv command.");
 					}

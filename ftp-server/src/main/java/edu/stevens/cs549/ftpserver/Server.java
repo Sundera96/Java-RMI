@@ -1,13 +1,8 @@
 package edu.stevens.cs549.ftpserver;
 
 import edu.stevens.cs549.ftpinterface.IServer;
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+
+import java.io.*;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -132,8 +127,15 @@ public class Server extends UnicastRemoteObject implements IServer {
 					/*
 					 * TODO: Complete this thread (remember to flush output!).
 					 */
-
-					
+					OutputStream out = new BufferedOutputStream(socket.getOutputStream());
+					byte[] data = new byte[1024];
+					int bytesRead = in.read(data);
+					while(bytesRead!=-1){
+						out.write(data);
+						bytesRead = in.read(data);
+					}
+					out.flush();
+					out.close();
 					/*
 					 * End TODO
 					 */
@@ -158,13 +160,25 @@ public class Server extends UnicastRemoteObject implements IServer {
 
 		public void run() {
 			try {
+				log.info("Is My passive request busy waiting");
 				Socket socket = dataChan.accept();
 				try {
 					log.info("Received connection request from client on server");
 					/*
 					 * TODO: Complete this thread.
 					 */
+					InputStream inputStream = new BufferedInputStream(socket.getInputStream());
+					byte[] data = new byte[1024];
+					int bytesRead = inputStream.read(data);
+					while(bytesRead!=-1){
+						out.write(data);
+						bytesRead = inputStream.read(data);
+					}
+					inputStream.close();
+
 				} finally {
+					out.flush();
+					out.close();
 					socket.close();
 				}
 			} catch (IOException e) {
@@ -183,16 +197,24 @@ public class Server extends UnicastRemoteObject implements IServer {
 			InputStream in = new BufferedInputStream(new FileInputStream(path() + file));
 			log.info("Server connecting to client at address " + clientSocket.getHostName() + " and port "+clientSocket.getPort());
 			Socket socket = new Socket(clientSocket.getHostName(), clientSocket.getPort());
+			OutputStream out = new BufferedOutputStream(socket.getOutputStream());
 			try {
 				/*
 				 * TODO: connect to client socket to transfer file.
 				 */
-
+				byte[] data = new byte[1024];
+				int bytesRead = in.read(data);
+				while(bytesRead!=-1) {
+					out.write(data);
+					bytesRead = in.read(data);
+				}
 				/*
 				 * End TODO.
 				 */
 			} finally {
 				in.close();
+				out.flush();
+				out.close();
 				socket.close();
 			}
 		} else if (mode == Mode.PASSIVE) {
@@ -208,10 +230,31 @@ public class Server extends UnicastRemoteObject implements IServer {
 			/*
 			 * TODO
 			 */
+			OutputStream out = new BufferedOutputStream(new FileOutputStream(path()+file));
+			Socket socket = new Socket(clientSocket.getHostName(), clientSocket.getPort());
+			try{
+				InputStream inputStream = new BufferedInputStream(socket.getInputStream());
+				byte[] data = new byte[1024];
+				int bytesRead = inputStream.read(data);
+				while(bytesRead!=-1){
+					out.write(data);
+					bytesRead = inputStream.read(data);
+				}
+				inputStream.close();
+			}finally {
+				out.flush();
+				out.close();
+				socket.close();
+			}
+
 		} else if (mode == Mode.PASSIVE) {
 			/*
 			 * TODO
 			 */
+			log.info("Server: Inside Passive mode put request ");
+			OutputStream out = new BufferedOutputStream(new FileOutputStream(path()+file));
+			log.info("Buffered out put stream created! ");
+			new Thread(new PutThread(dataChan,out)).start();
 		}
 	}
 

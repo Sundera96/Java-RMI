@@ -46,8 +46,8 @@
         <client.ip>localhost</client.ip>
 
         <!-- Where to distribute jar files (using maven). -->
-        <client.dist>${user.home}/tmp/cs549/ftp-test</client.dist>
-        <server.dist>${client.dist}</server.dist>
+        <client.dist>${user.home}/tmp/cs549/ftp-test/ftp</client.dist>
+        <server.dist>${client.dist}/../ftpd</server.dist>
 
     </properties>
 
